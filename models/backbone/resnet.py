@@ -53,6 +53,7 @@ class FrozenBatchNorm2d(nn.Module):
 
 
 class BasicBlock(nn.Module):
+
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
@@ -158,6 +159,8 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2, dilation=1)
 
         self.stages = self._init_stage_stage()
+
+        self.num_channels = 512 * block.expansion
 
         self._init_weights()
 

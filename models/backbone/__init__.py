@@ -14,6 +14,8 @@ class Backbone(nn.Module):
         self.backbone = backbone 
         self.position_embedding = position_embedding
 
+        self.num_channels = backbone.num_channels
+
     def forward(self, inputs):
         xs = self.backbone(inputs.tensors)
         
