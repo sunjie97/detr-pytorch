@@ -26,7 +26,7 @@ class TransformerEncoderLayer(nn.Module):
         )
 
         self.norm1 = nn.LayerNorm(embed_dim)
-        self.norm2 = nn.LayerNOrm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
         self.drop1 = nn.Dropout(drop)
         self.drop2 = nn.Dropout(drop)
 
@@ -177,7 +177,8 @@ class Transformer(nn.Module):
         memory = self.encoder(x, key_padding_mask=key_padding_mask, pos_embed=pos_embed)
         outs = self.decoder(tgt, memory, memory_key_padding_mask=key_padding_mask, query_embed=query_embed, pos_embed=pos_embed)
 
-        return outs.transpose(1, 2)  # [num_outs, bs, num_queries, embed_dim]
+        # [num_layers, b, num_queries, embed_dim]  [b, c, h, w]
+        return outs.transpose(1, 2), memory.permute(1, 2, 0).view(b, c, h, w)
 
 
 def build_transformer(args):
