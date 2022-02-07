@@ -2,15 +2,15 @@ import torch
 import torch.nn as nn 
 
 
-def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
+def conv3x3(in_channels, out_channels, stride=1, groups=1, dilation=1):
     """3x3 convolution with padding"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
+    return nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride,
                      padding=dilation, groups=groups, bias=False, dilation=dilation)
 
 
-def conv1x1(in_planes, out_planes, stride=1):
+def conv1x1(in_channels, out_channels, stride=1):
     """1x1 convolution"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+    return nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False)
 
 
 class FrozenBatchNorm2d(nn.Module):
@@ -23,7 +23,7 @@ class FrozenBatchNorm2d(nn.Module):
     """
 
     def __init__(self, n):
-        super(FrozenBatchNorm2d, self).__init__()
+        super().__init__()
         self.register_buffer("weight", torch.ones(n))
         self.register_buffer("bias", torch.zeros(n))
         self.register_buffer("running_mean", torch.zeros(n))
@@ -35,7 +35,7 @@ class FrozenBatchNorm2d(nn.Module):
         if num_batches_tracked_key in state_dict:
             del state_dict[num_batches_tracked_key]
 
-        super(FrozenBatchNorm2d, self)._load_from_state_dict(
+        super()._load_from_state_dict(
             state_dict, prefix, local_metadata, strict,
             missing_keys, unexpected_keys, error_msgs)
 
@@ -56,7 +56,7 @@ class BasicBlock(nn.Module):
 
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
+    def __init__(self, in_channels, out_channels, stride=1, downsample=None, groups=1,
                  base_width=64, dilation=1, norm_layer=None):
         super(BasicBlock, self).__init__()
         if norm_layer is None:
@@ -66,11 +66,11 @@ class BasicBlock(nn.Module):
         if dilation > 1:
             raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
         # Both self.conv1 and self.downsample layers downsample the input when stride != 1
-        self.conv1 = conv3x3(inplanes, planes, stride)
-        self.bn1 = norm_layer(planes)
+        self.conv1 = conv3x3(in_channels, out_channels, stride)
+        self.bn1 = norm_layer(out_channels)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = conv3x3(planes, planes)
-        self.bn2 = norm_layer(planes)
+        self.conv2 = conv3x3(out_channels, out_channels)
+        self.bn2 = norm_layer(out_channels)
         self.downsample = downsample
         self.stride = stride
 
@@ -97,19 +97,19 @@ class Bottleneck(nn.Module):
 
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
+    def __init__(self, in_channels, out_channels, stride=1, downsample=None, groups=1,
                  base_width=64, dilation=1, norm_layer=None):
         super(Bottleneck, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
-        width = int(planes * (base_width / 64.)) * groups
+        width = int(out_channels * (base_width / 64.)) * groups
         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
-        self.conv1 = conv1x1(inplanes, width)
+        self.conv1 = conv1x1(in_channels, width)
         self.bn1 = norm_layer(width)
         self.conv2 = conv3x3(width, width, stride, groups, dilation)
         self.bn2 = norm_layer(width)
-        self.conv3 = conv1x1(width, planes * self.expansion)
-        self.bn3 = norm_layer(planes * self.expansion)
+        self.conv3 = conv1x1(width, out_channels * self.expansion)
+        self.bn3 = norm_layer(out_channels * self.expansion)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -145,12 +145,12 @@ class ResNet(nn.Module):
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
 
-        self.inplanes = 64
+        self.in_channels = 64
         self.groups = groups
         self.base_width = width_per_group
 
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1 = norm_layer(self.inplanes)
+        self.conv1 = nn.Conv2d(3, self.in_channels, kernel_size=7, stride=2, padding=3, bias=False)
+        self.bn1 = norm_layer(self.in_channels)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
@@ -166,8 +166,7 @@ class ResNet(nn.Module):
 
     def _init_stage_stage(self):
         stages = [
-            nn.Sequential(self.conv1, self.bn1, self.relu),
-            nn.Sequential(self.maxpool, self.layer1),
+            nn.Sequential(self.conv1, self.bn1, self.relu, self.maxpool, self.layer1),
             self.layer2,
             self.layer3,
             self.layer4
@@ -175,22 +174,22 @@ class ResNet(nn.Module):
 
         return stages
 
-    def _make_layer(self, block, planes, blocks, stride=1, dilation=1):
+    def _make_layer(self, block, channels, blocks, stride=1, dilation=1):
         norm_layer = self._norm_layer
         downsample = None
 
-        if stride != 1 or self.inplanes != planes * block.expansion:
+        if stride != 1 or self.in_channels != channels * block.expansion:
             downsample = nn.Sequential(
-                conv1x1(self.inplanes, planes * block.expansion, stride),
-                norm_layer(planes * block.expansion),
+                conv1x1(self.in_channels, channels * block.expansion, stride),
+                norm_layer(channels * block.expansion),
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
+        layers.append(block(self.in_channels, channels, stride, downsample, self.groups,
                             self.base_width, dilation=dilation, norm_layer=norm_layer))
-        self.inplanes = planes * block.expansion
+        self.in_channels = channels * block.expansion
         for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes, groups=self.groups,
+            layers.append(block(self.in_channels, channels, groups=self.groups,
                                 base_width=self.base_width, norm_layer=norm_layer))
 
         return nn.Sequential(*layers)
@@ -202,7 +201,7 @@ class ResNet(nn.Module):
             x = stage(x)
             outs.append(x)        
 
-        return outs[1:]
+        return outs
 
     def _init_weights(self):
         for m in self.modules():
@@ -223,3 +222,26 @@ class ResNet50(ResNet):
 
     def __init__(self):
         super().__init__(Bottleneck, layers=[3, 4, 6, 3], norm_layer=FrozenBatchNorm2d)
+
+
+from torchvision.models import resnet
+
+if __name__ == '__main__':
+    model = ResNet18()
+    state_dict = torch.hub.load_state_dict_from_url('https://download.pytorch.org/models/resnet18-f37072fd.pth')
+    # model = ResNet50()
+    # state_dict = torch.hub.load_state_dict_from_url('https://download.pytorch.org/models/resnet50-0676ba61.pth')
+    del state_dict['fc.weight']
+    del state_dict['fc.bias']
+    model.load_state_dict(state_dict)
+
+    inputs = torch.rand(2, 3, 224, 224)
+    outs = model(inputs)
+    for o in outs:
+        print(o.shape)
+        """
+        torch.Size([2, 256, 56, 56])
+        torch.Size([2, 512, 28, 28])
+        torch.Size([2, 1024, 14, 14])
+        torch.Size([2, 2048, 7, 7])
+        """
