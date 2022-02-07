@@ -209,11 +209,6 @@ class MobileNetV3Small(MobileNetV3):
         super().__init__(inverted_residual_setting, layer_getter_idx)
 
 
-model_urls = {
-    "mobilenet_v3_large": "https://download.pytorch.org/models/mobilenet_v3_large-8738ca79.pth",
-    "mobilenet_v3_small": "https://download.pytorch.org/models/mobilenet_v3_small-047dcff4.pth",
-}
-
 if __name__ == '__main__':
     import torch 
     x = torch.rand(2, 3, 224, 224)

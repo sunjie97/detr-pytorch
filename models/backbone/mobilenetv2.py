@@ -1,10 +1,6 @@
 import torch.nn as nn 
 
 
-model_urls = {
-    'mobilenet_v2': 'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth',
-}
-
 def _make_divisible(v, divisor, min_value=None):
     """
     This function is taken from the original tf repo.

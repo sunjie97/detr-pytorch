@@ -99,7 +99,7 @@ class Bottleneck(nn.Module):
 
     def __init__(self, in_channels, out_channels, stride=1, downsample=None, groups=1,
                  base_width=64, dilation=1, norm_layer=None):
-        super(Bottleneck, self).__init__()
+        super().__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         width = int(out_channels * (base_width / 64.)) * groups
@@ -212,12 +212,6 @@ class ResNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 
-class ResNet18(ResNet):
-
-    def __init__(self):
-        super().__init__(BasicBlock, layers=[2, 2, 2, 2], norm_layer=FrozenBatchNorm2d)
-
-
 class ResNet50(ResNet):
 
     def __init__(self):
@@ -227,10 +221,8 @@ class ResNet50(ResNet):
 from torchvision.models import resnet
 
 if __name__ == '__main__':
-    model = ResNet18()
-    state_dict = torch.hub.load_state_dict_from_url('https://download.pytorch.org/models/resnet18-f37072fd.pth')
-    # model = ResNet50()
-    # state_dict = torch.hub.load_state_dict_from_url('https://download.pytorch.org/models/resnet50-0676ba61.pth')
+    model = ResNet50()
+    state_dict = torch.hub.load_state_dict_from_url('https://download.pytorch.org/models/resnet50-0676ba61.pth')
     del state_dict['fc.weight']
     del state_dict['fc.bias']
     model.load_state_dict(state_dict)
