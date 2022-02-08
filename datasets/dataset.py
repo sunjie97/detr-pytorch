@@ -27,20 +27,20 @@ class CocoDataset(torch.utils.data.Dataset):
     def _load_target(self, idx):
         target = self.coco.loadAnns(self.coco.getAnnIds(idx))
 
-        bboxes = [t['bbox'] for t in target]
-        labels = [t['category_id'] for t in target]
+        gt_bboxes = [t['bbox'] for t in target]
+        gt_labels = [t['category_id'] for t in target]
 
-        return bboxes, labels 
+        return gt_bboxes, gt_labels 
 
     def __getitem__(self, idx):
         idx = self.ids[idx]
         img = self._load_img(idx)
-        bboxes, labels = self._load_target(idx)
+        gt_bboxes, gt_labels = self._load_target(idx)
 
         sample = {
             'img': img,
-            'gt_bboxes': bboxes,
-            'gt_labels': labels
+            'gt_bboxes': gt_bboxes,
+            'gt_labels': gt_labels
         }
 
         if self.transforms is not None:
@@ -54,14 +54,11 @@ class CocoDataset(torch.utils.data.Dataset):
 
 
 def coco_collate_fn(batch):
-    """
-    每个 batch 有多张图片，但每张图片尺寸并不一致，所以需要对同一个 batch 内的图片以最大尺寸做 padding, NestedTensor 里面的 mask 用于标识 padding 位置
-    """
     data = defaultdict(list)
     for k in batch[0].keys():
         for b in batch:
             data[k].append(b[k])
-    imgs = data['img']
+    imgs = data.pop('img')
 
     max_size = (0, 0, 0)
     img_sizes = [img.shape for img in imgs]
@@ -79,6 +76,8 @@ def coco_collate_fn(batch):
         # 存在内容的区域为0，pad的区域为1
         mask[:img.shape[1], :img.shape[2]] = False 
     
-    data['img'] = NestedTensor(padded_imgs, masks)
+    imgs = NestedTensor(padded_imgs, masks)
+    gt_bboxes = data.pop('gt_bboxes')
+    gt_labels = data.pop('gt_labels')
 
-    return data
+    return imgs, gt_bboxes, gt_labels, data

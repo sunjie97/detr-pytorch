@@ -1,3 +1,4 @@
+import os
 import torch 
 from torchvision.transforms import Compose
 from .dataset import CocoDataset, coco_collate_fn
@@ -29,13 +30,38 @@ def get_train_transforms():
     return transforms
 
 
-def build_loader(cfg):
+def get_test_transforms():
+    transforms = Compose([
+        Resize(img_scale=[(800, 1333)], multiscale_mode='value', keep_ratio=True),
+        Normalize(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True),
+        ToTensor()
+    ])
 
-    dataset = CocoDataset(root=cfg['root'], ann_path=cfg['ann_path'], transforms=get_train_transforms())
+    return transforms
 
-    loader = torch.utils.data.DataLoader(dataset, batch_size=cfg['batch_size'], num_workers=4, shuffle=True, pin_memory=True, drop_last=False, collate_fn=coco_collate_fn)
 
-    return loader 
+def build_loader(args):
+
+    coco_path = args.coco_path
+
+    train_root = os.path.join(coco_path, 'train2017')
+    train_ann_path = os.path.join(coco_path, 'annotations', 'instances_train2017.json')
+    val_root = os.path.join(coco_path, 'val2017')
+    val_ann_path = os.path.join(coco_path, 'annotations', 'instances_val2017.json')
+
+    train_dataset = CocoDataset(root=train_root, ann_path=train_ann_path, transforms=get_train_transforms())
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=args.batch_size, num_workers=4, shuffle=True, 
+        pin_memory=True, drop_last=False, collate_fn=coco_collate_fn
+    )
+
+    val_dataset = CocoDataset(root=val_root, ann_path=val_ann_path, transforms=get_test_transforms())
+    val_loader = torch.utils.data.DataLoader(
+        val_dataset, batch_size=args.batch_size, num_workers=4, shuffle=False, 
+        pin_memory=True, drop_last=False, collate_fn=coco_collate_fn
+    )
+
+    return train_loader, val_loader
 
 
 
