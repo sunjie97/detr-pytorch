@@ -10,7 +10,7 @@ from utils.misc import NestedTensor
 
 
 model_urls = {
-    "resnet50": "https://download.pytorch.org/models/resnet18-f37072fd.pth",
+    "resnet50": "https://download.pytorch.org/models/resnet50-0676ba61.pth",
     'mobilenet_v2': 'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth',
     "mobilenet_v3_large": "https://download.pytorch.org/models/mobilenet_v3_large-8738ca79.pth",
     "mobilenet_v3_small": "https://download.pytorch.org/models/mobilenet_v3_small-047dcff4.pth"
