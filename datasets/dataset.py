@@ -1,50 +1,78 @@
-import os 
+import os
 import torch
-import cv2 
+from PIL import Image 
 from collections import defaultdict
 from pycocotools.coco import COCO
 
 from utils.misc import NestedTensor 
 
 
+
 class CocoDataset(torch.utils.data.Dataset):
 
-    def __init__(self, root, ann_path, transforms=None):
+    def __init__(self, root, ann_path, transforms=None, phase='train'):
         super().__init__()
 
         self.root = root 
-        self.coco = COCO(ann_path)
-        self.ids = list(sorted(self.coco.imgs.keys()))
-        
+        self.phase = phase 
         self.transforms = transforms 
+        self.coco = COCO(ann_path)
 
-    def _load_img(self, idx):
-        file_name = self.coco.loadImgs(idx)[0]['file_name']
-        img = cv2.cvtColor(cv2.imread(os.path.join(self.root, file_name)), cv2.COLOR_BGR2RGB)
+        ids = list(sorted(self.coco.imgs.keys()))
+        if self.phase == "train":
+            # 移除没有目标，或者目标面积非常小的数据
+            valid_ids = self._coco_remove_images_without_annotations(ids)
+            self.ids = valid_ids
+        else:
+            self.ids = ids
+        
+    def load_img(self, image_id):
+        file_name = self.coco.loadImgs(image_id)[0]['file_name']
+        img = Image.open(os.path.join(self.root, file_name)).convert("RGB")
         
         return img 
 
-    def _load_target(self, idx):
-        target = self.coco.loadAnns(self.coco.getAnnIds(idx))
+    def load_target(self, image_id, w, h):
+        annos = self.coco.loadAnns(self.coco.getAnnIds(image_id))
 
-        gt_bboxes = [t['bbox'] for t in target]
-        gt_labels = [t['category_id'] for t in target]
+        annos = [anno for anno in annos if anno['iscrowd'] == 0]
 
-        return gt_bboxes, gt_labels 
+        # 进一步检查数据，有的标注信息中可能有w或h为0的情况，这样的数据会导致计算回归loss为nan
+        boxes = []
+        for anno in annos:
+            if anno['bbox'][2] > 0 and anno['bbox'][3] > 0:
+                boxes.append(anno['bbox'])
+
+        boxes = torch.as_tensor(boxes, dtype=torch.float32).reshape(-1, 4)
+        # xywh -> xyxy
+        boxes[:, 2:] += boxes[:, :2]
+        boxes[:, 0::2].clamp_(0, w)
+        boxes[:, 1::2].clamp_(0, h)
+
+        labels = [anno['category_id'] for anno in annos]
+        labels = torch.tensor(labels, dtype=torch.int64)
+
+        targets = {}
+        targets['boxes'] = boxes 
+        targets['labels'] = labels 
+        targets['image_id'] = torch.tensor([image_id])
+        targets['orig_size'] = torch.tensor([w, h])
+
+        # for conversion to coco api
+        area = torch.tensor([anno["area"] for anno in annos])
+        iscrowd = torch.tensor([anno["iscrowd"] for anno in annos])
+        targets["area"] = area
+        targets["iscrowd"] = iscrowd
+        
+        return targets 
 
     def __getitem__(self, idx):
-        idx = self.ids[idx]
-        img = self._load_img(idx)
-        gt_bboxes, gt_labels = self._load_target(idx)
-
-        sample = {
-            'img': img,
-            'gt_bboxes': gt_bboxes,
-            'gt_labels': gt_labels
-        }
+        image_id = self.ids[idx]
+        img = self.load_img(image_id)
+        targets = self.load_target(image_id, img.size[0], img.size[1])
 
         if self.transforms is not None:
-            sample = self.transforms(sample)
+            sample = self.transforms(img, targets)
 
         return sample
 
@@ -52,14 +80,40 @@ class CocoDataset(torch.utils.data.Dataset):
 
         return len(self.ids)
 
+    def _coco_remove_images_without_annotations(self, ids):
+        """
+        删除coco数据集中没有目标，或者目标面积非常小的数据
+        refer to:
+        https://github.com/pytorch/vision/blob/master/references/detection/coco_utils.py
+        """
+        def _has_only_empty_bbox(anno):
+            return all(any(o <= 1 for o in obj["bbox"][2:]) for obj in anno)
+
+        def _has_valid_annotation(anno):
+            # if it's empty, there is no annotation
+            if len(anno) == 0:
+                return False
+            # if all boxes have close to zero area, there is no annotation
+            if _has_only_empty_bbox(anno):
+                return False
+
+            return True
+
+        valid_ids = []
+        for img_id in ids:
+            ann_ids = self.coco.getAnnIds(imgIds=img_id, iscrowd=None)
+            anno = self.coco.loadAnns(ann_ids)
+
+            if _has_valid_annotation(anno):
+                valid_ids.append(img_id)
+
+        return valid_ids
+
 
 def coco_collate_fn(batch):
-    data = defaultdict(list)
-    for k in batch[0].keys():
-        for b in batch:
-            data[k].append(b[k])
-    imgs = data.pop('img')
+    batch = list(zip(*batch))
 
+    imgs = batch[0]
     max_size = (0, 0, 0)
     img_sizes = [img.shape for img in imgs]
     for img_size in img_sizes:
@@ -77,7 +131,10 @@ def coco_collate_fn(batch):
         mask[:img.shape[1], :img.shape[2]] = False 
     
     imgs = NestedTensor(padded_imgs, masks)
-    gt_bboxes = data.pop('gt_bboxes')
-    gt_labels = data.pop('gt_labels')
 
-    return imgs, gt_bboxes, gt_labels, data
+    targets = defaultdict(list)
+    for t in batch[1]:
+        for k, v in t.items():
+            targets[k].append(v)
+
+    return imgs, targets
