@@ -1,4 +1,5 @@
 import os
+import json 
 import torch
 from PIL import Image 
 from collections import defaultdict
@@ -25,6 +26,8 @@ class CocoDataset(torch.utils.data.Dataset):
             self.ids = valid_ids
         else:
             self.ids = ids
+
+        self._init_label_map()
         
     def load_img(self, image_id):
         file_name = self.coco.loadImgs(image_id)[0]['file_name']
@@ -48,8 +51,7 @@ class CocoDataset(torch.utils.data.Dataset):
         boxes[:, 2:] += boxes[:, :2]
         boxes[:, 0::2].clamp_(0, w)
         boxes[:, 1::2].clamp_(0, h)
-
-        labels = [anno['category_id'] for anno in annos]
+        labels = [self.coco91to80[str(anno['category_id'])] for anno in annos]
         labels = torch.tensor(labels, dtype=torch.int64)
 
         targets = {}
@@ -79,6 +81,32 @@ class CocoDataset(torch.utils.data.Dataset):
     def __len__(self):
 
         return len(self.ids)
+
+    def _init_label_map(self):
+        if self.phase == "train":
+            # 获取coco数据索引与类别名称的关系
+            # 注意在object80中的索引并不是连续的，虽然只有80个类别，但索引还是按照stuff91来排序的
+            coco_classes = dict([(v["id"], v["name"]) for k, v in self.coco.cats.items()])
+
+            # 将stuff91的类别索引重新编排，从1到80
+            coco91to80 = dict([(str(k), idx+1) for idx, (k, _) in enumerate(coco_classes.items())])
+            json_str = json.dumps(coco91to80, indent=4)
+            with open('coco91_to_80.json', 'w') as json_file:
+                json_file.write(json_str)
+
+            # 记录重新编排后的索引以及类别名称关系
+            coco80_info = dict([(str(idx+1), v) for idx, (_, v) in enumerate(coco_classes.items())])
+            json_str = json.dumps(coco80_info, indent=4)
+            with open('coco80_indices.json', 'w') as json_file:
+                json_file.write(json_str)
+        else:
+            # 如果是验证集就直接读取生成好的数据
+            coco91to80_path = 'coco91_to_80.json'
+            assert os.path.exists(coco91to80_path), "file '{}' does not exist.".format(coco91to80_path)
+
+            coco91to80 = json.load(open(coco91to80_path, "r"))
+
+        self.coco91to80 = coco91to80
 
     def _coco_remove_images_without_annotations(self, ids):
         """

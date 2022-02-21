@@ -40,11 +40,11 @@ def build_loader(args):
     val_root = os.path.join(coco_path, 'val2017')
     val_ann_path = os.path.join(coco_path, 'annotations', 'instances_val2017.json')
 
-    # train_dataset = CocoDataset(root=train_root, ann_path=train_ann_path, transforms=get_train_transforms())
-    # train_loader = torch.utils.data.DataLoader(
-    #     train_dataset, batch_size=args.batch_size, num_workers=4, shuffle=True, 
-    #     pin_memory=True, drop_last=False, collate_fn=coco_collate_fn
-    # )
+    train_dataset = CocoDataset(root=train_root, ann_path=train_ann_path, transforms=get_train_transforms())
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=args.batch_size, num_workers=0, shuffle=True, 
+        pin_memory=True, drop_last=False, collate_fn=coco_collate_fn
+    )
 
     val_dataset = CocoDataset(root=val_root, ann_path=val_ann_path, transforms=get_test_transforms(), phase='train')
     val_loader = torch.utils.data.DataLoader(
@@ -52,8 +52,7 @@ def build_loader(args):
         pin_memory=True, drop_last=False, collate_fn=coco_collate_fn
     )
 
-    # return train_loader, val_loader
-    return val_loader
+    return train_loader, val_loader
 
 
 
