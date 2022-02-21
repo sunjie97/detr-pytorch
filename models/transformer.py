@@ -1,12 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-"""
-DETR Transformer class.
-
-Copy-paste from torch.nn.Transformer with modifications:
-    * positional encodings are passed in MHattention
-    * extra LN at the end of encoder is removed
-    * decoder returns a stack of activations from all decoding layers
-"""
 import torch
 import torch.nn as nn 
 
@@ -15,8 +6,7 @@ class TransformerEncoderLayer(nn.Module):
 
     def __init__(self, embed_dim, num_heads, hidden_dim=2048, drop=0.1):
         super().__init__()
-
-        self.attn = nn.MultiHeadAttention(embed_dim, num_heads, dropout=drop)
+        self.attn = nn.MultiheadAttention(embed_dim, num_heads, dropout=drop)
 
         self.mlp = nn.Sequential(
             nn.ReLU(inplace=True),
@@ -43,7 +33,7 @@ class TransformerEncoderLayer(nn.Module):
         """
         q = k = self.with_pos_embed(x, pos_embed)
         attn = self.attn(q, k, value=x, key_padding_mask=key_padding_mask)[0]
-        x = self.nomr1(x + self.drop1(attn))
+        x = self.norm1(x + self.drop1(attn))
 
         attn = self.mlp(x)
         x = self.norm2(x + self.drop2(attn))
@@ -76,8 +66,8 @@ class TransformerDecoderLayer(nn.Module):
     def __init__(self, embed_dim, num_heads, hidden_dim=2048, drop=0.1):
         super().__init__()
 
-        self.attn1 = nn.MultiHeadAttention(embed_dim, num_heads, dropout=drop)
-        self.attn2 = nn.MultiHeadAttention(embed_dim, num_heads, dropout=drop)
+        self.attn1 = nn.MultiheadAttention(embed_dim, num_heads, dropout=drop)
+        self.attn2 = nn.MultiheadAttention(embed_dim, num_heads, dropout=drop)
 
         self.mlp = nn.Sequential(
             nn.Linear(embed_dim, hidden_dim),
@@ -112,7 +102,7 @@ class TransformerDecoderLayer(nn.Module):
 
         q = self.with_pos_embed(tgt, query_embed)
         k = self.with_pos_embed(memory, pos_embed)
-        attn = self.attn2(q, k, value=memory, Key_padding_mask=memory_key_padding_mask)[0]
+        attn = self.attn2(q, k, value=memory, key_padding_mask=memory_key_padding_mask)[0]
         tgt = self.norm2(tgt + self.drop2(attn))
 
         attn = self.mlp(tgt)
@@ -126,7 +116,7 @@ class TransformerDecoder(nn.Module):
     def __init__(self, decoder_layer, num_layers):
         super().__init__()
 
-        self.layers = nn.ModuleList([decoder_layer for _ in num_layers])
+        self.layers = nn.ModuleList([decoder_layer for _ in range(num_layers)])
 
     def forward(self, tgt, memory, memory_key_padding_mask=None, query_embed=None, pos_embed=None):
         outs = []
@@ -185,11 +175,11 @@ def build_transformer(args):
 
     return Transformer(
         embed_dim=args.embed_dim,
-        num_heads=args.num_heads,
-        num_encoder_layer=args.num_encoder_layers,
-        num_decoder_layer=args.num_decoder_layers,
+        num_heads=args.nheads,
+        num_encoder_layer=args.encoder_layers,
+        num_decoder_layer=args.decoder_layers,
         hidden_dim=args.hidden_dim,
-        drop=args.drop
+        drop=args.dropout
     )
 
 """
