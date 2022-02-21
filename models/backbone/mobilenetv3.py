@@ -155,13 +155,7 @@ class MobileNetV3(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def forward(self, x):
-        outs = []
-        for i, layer in enumerate(self.features):
-            x = layer(x)
-            if i in self.layer_getter_idx:
-                outs.append(x)
-        
-        return outs 
+        return self.features(x)
 
 
 class MobileNetV3Large(MobileNetV3):
@@ -207,21 +201,3 @@ class MobileNetV3Small(MobileNetV3):
         ]
         layer_getter_idx = [1, 3, 8, 12]
         super().__init__(inverted_residual_setting, layer_getter_idx)
-
-
-if __name__ == '__main__':
-    import torch 
-    x = torch.rand(2, 3, 224, 224)
-
-    model = MobileNetV3Large()
-    state_dict = torch.hub.load_state_dict_from_url('https://download.pytorch.org/models/mobilenet_v3_large-8738ca79.pth')
-    # model = MobileNetV3Small()
-    # state_dict = torch.hub.load_state_dict_from_url('https://download.pytorch.org/models/mobilenet_v3_small-047dcff4.pth')
-
-    for k in list(state_dict.keys()):
-        if 'classifier' in k:
-            del state_dict[k]
-    model.load_state_dict(state_dict)
-    outs = model(x)
-    for o in outs:
-        print(o.shape)

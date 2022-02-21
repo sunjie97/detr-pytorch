@@ -122,25 +122,4 @@ class MobilenetV2(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def forward(self, x):
-        outs = []
-        for i, layer in enumerate(self.features):
-            if i in [3, 5, 8]:
-                outs.append(x)
-            x = layer(x)
-        outs.append(x)
-
-        return outs
-
-
-if __name__ == '__main__':
-    import torch 
-    model = MobilenetV2()
-    state_dict = torch.hub.load_state_dict_from_url('https://download.pytorch.org/models/mobilenet_v2-b0353104.pth')
-    del state_dict['classifier.1.weight']
-    del state_dict['classifier.1.bias']
-    model.load_state_dict(state_dict)
-
-    inputs = torch.rand(2, 3, 224, 224)
-    outs = model(inputs)
-    for o in outs:
-        print(o.shape)
+        return self.features(x)

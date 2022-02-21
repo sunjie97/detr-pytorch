@@ -195,13 +195,9 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        outs = []
-
         for stage in self.stages:
-            x = stage(x)
-            outs.append(x)        
-
-        return outs
+            x = stage(x)      
+        return x
 
     def _init_weights(self):
         for m in self.modules():
@@ -216,24 +212,3 @@ class ResNet50(ResNet):
 
     def __init__(self):
         super().__init__(Bottleneck, layers=[3, 4, 6, 3], norm_layer=FrozenBatchNorm2d)
-
-
-from torchvision.models import resnet
-
-if __name__ == '__main__':
-    model = ResNet50()
-    state_dict = torch.hub.load_state_dict_from_url('https://download.pytorch.org/models/resnet50-0676ba61.pth')
-    del state_dict['fc.weight']
-    del state_dict['fc.bias']
-    model.load_state_dict(state_dict)
-
-    inputs = torch.rand(2, 3, 224, 224)
-    outs = model(inputs)
-    for o in outs:
-        print(o.shape)
-        """
-        torch.Size([2, 256, 56, 56])
-        torch.Size([2, 512, 28, 28])
-        torch.Size([2, 1024, 14, 14])
-        torch.Size([2, 2048, 7, 7])
-        """
