@@ -12,7 +12,7 @@
 * [x] ResNet50
 * [x] MobileNetV2
 * [x] MobileNetV3
-* [x] ConvNext
+* [x] ConvNeXt
 
 ## Train
 ```python
